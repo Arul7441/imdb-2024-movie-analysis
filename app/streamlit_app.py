@@ -4,20 +4,19 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sqlalchemy import create_engine
 
-# Page title
 st.title("🎬 IMDb 2024 Movie Analysis Dashboard")
 
 # Connect to MySQL
 engine = create_engine("mysql+pymysql://root@localhost/imdb_db")
 
-# Load dataset
 df = pd.read_sql("SELECT * FROM movies", engine)
 
 st.subheader("Dataset Preview")
 st.dataframe(df)
 
-# Sidebar filters
-st.sidebar.header("Filters")
+# ---------------- FILTERS ----------------
+
+st.sidebar.header("Interactive Filters")
 
 rating_filter = st.sidebar.slider(
     "Minimum Rating",
@@ -33,15 +32,30 @@ votes_filter = st.sidebar.slider(
     10000
 )
 
+duration_filter = st.sidebar.slider(
+    "Maximum Duration",
+    int(df["Duration"].min()),
+    int(df["Duration"].max()),
+    int(df["Duration"].max())
+)
+
+genre_filter = st.sidebar.multiselect(
+    "Select Genre",
+    options=df["Genre"].unique(),
+    default=df["Genre"].unique()
+)
+
 filtered_df = df[
     (df["Ratings"] >= rating_filter) &
-    (df["Voting Counts"] >= votes_filter)
+    (df["Voting Counts"] >= votes_filter) &
+    (df["Duration"] <= duration_filter) &
+    (df["Genre"].isin(genre_filter))
 ]
 
 st.subheader("Filtered Movies")
 st.dataframe(filtered_df)
 
-# -------- Chart 1 Top Rated Movies --------
+# ---------------- TOP RATED MOVIES ----------------
 
 st.subheader("Top 10 Movies by Rating")
 
@@ -50,46 +64,69 @@ top_movies = df.sort_values("Ratings", ascending=False).head(10)
 fig1, ax1 = plt.subplots()
 ax1.barh(top_movies["Movie Name"], top_movies["Ratings"])
 ax1.set_xlabel("Rating")
-ax1.set_ylabel("Movie")
 
 st.pyplot(fig1)
 
-# -------- Chart 2 Rating Distribution --------
+# ---------------- GENRE DISTRIBUTION ----------------
 
-st.subheader("Rating Distribution")
+st.subheader("Genre Distribution")
+
+genre_counts = df["Genre"].value_counts()
 
 fig2, ax2 = plt.subplots()
-sns.histplot(df["Ratings"], bins=10, ax=ax2)
+genre_counts.plot(kind="bar", ax=ax2)
 
 st.pyplot(fig2)
 
-# -------- Chart 3 Votes vs Ratings --------
+# ---------------- AVERAGE RATING BY GENRE ----------------
 
-st.subheader("Votes vs Ratings")
+st.subheader("Average Rating by Genre")
+
+avg_rating = df.groupby("Genre")["Ratings"].mean()
 
 fig3, ax3 = plt.subplots()
-sns.scatterplot(data=df, x="Voting Counts", y="Ratings", ax=ax3)
+avg_rating.plot(kind="bar", ax=ax3)
 
 st.pyplot(fig3)
 
-# -------- Chart 4 Top Voted Movies --------
+# ---------------- RATING DISTRIBUTION ----------------
 
-st.subheader("Top 10 Movies by Voting Counts")
-
-top_votes = df.sort_values("Voting Counts", ascending=False).head(10)
+st.subheader("Rating Distribution")
 
 fig4, ax4 = plt.subplots()
-ax4.barh(top_votes["Movie Name"], top_votes["Voting Counts"])
+sns.histplot(df["Ratings"], bins=10, ax=ax4)
 
 st.pyplot(fig4)
 
-# -------- Chart 5 Correlation --------
+# ---------------- VOTING TRENDS ----------------
 
-st.subheader("Correlation Between Ratings and Votes")
+st.subheader("Average Voting Counts by Genre")
 
-correlation = df[["Ratings", "Voting Counts"]].corr()
+votes_by_genre = df.groupby("Genre")["Voting Counts"].mean()
 
 fig5, ax5 = plt.subplots()
-sns.heatmap(correlation, annot=True, cmap="coolwarm", ax=ax5)
+votes_by_genre.plot(kind="bar", ax=ax5)
 
 st.pyplot(fig5)
+
+# ---------------- VOTES VS RATINGS ----------------
+
+st.subheader("Votes vs Ratings")
+
+fig6, ax6 = plt.subplots()
+sns.scatterplot(data=df, x="Voting Counts", y="Ratings", ax=ax6)
+
+st.pyplot(fig6)
+
+# ---------------- DURATION EXTREMES ----------------
+
+st.subheader("Shortest and Longest Movies")
+
+shortest = df.loc[df["Duration"].idxmin()]
+longest = df.loc[df["Duration"].idxmax()]
+
+st.write("Shortest Movie")
+st.write(shortest)
+
+st.write("Longest Movie")
+st.write(longest)
