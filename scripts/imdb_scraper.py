@@ -5,14 +5,13 @@ from selenium.webdriver.common.by import By
 import pandas as pd
 import time
 
-# Start driver
 service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service)
 
-url = "https://www.imdb.com/search/title/?title_type=feature&year=2024-01-01,2024-12-31"
+url = "https://www.imdb.com/chart/top/"
 driver.get(url)
 
-time.sleep(6)
+time.sleep(5)
 
 movies = []
 genres = []
@@ -20,36 +19,55 @@ ratings = []
 votes = []
 durations = []
 
-cards = driver.find_elements(By.CSS_SELECTOR, "li.ipc-metadata-list-summary-item")
+rows = driver.find_elements(By.CSS_SELECTOR, "li.ipc-metadata-list-summary-item")
 
-print("Cards found:", len(cards))
+print("Movies found:", len(rows))
 
-for card in cards:
+for row in rows:
 
+    # Movie Name
     try:
-        name = card.find_element(By.CSS_SELECTOR, "h3").text
+        name = row.find_element(By.CSS_SELECTOR, "h3").text
     except:
-        name = ""
+        name = "Unknown"
 
+    # Rating
     try:
-        genre = card.find_element(By.CSS_SELECTOR, ".ipc-chip__text").text
+        rating = row.find_element(By.CSS_SELECTOR, ".ipc-rating-star--rating").text
     except:
-        genre = ""
+        rating = "0"
 
+    # Votes
     try:
-        rating = card.find_element(By.CSS_SELECTOR, ".ipc-rating-star--rating").text
+        vote = row.find_element(By.CSS_SELECTOR, ".ipc-rating-star--voteCount").text
     except:
-        rating = ""
+        vote = "0"
 
+    # Duration
     try:
-        vote = card.find_element(By.CSS_SELECTOR, ".ipc-rating-star--voteCount").text
+        metadata = row.find_elements(By.CSS_SELECTOR, ".cli-title-metadata-item")
+        duration = metadata[1].text
     except:
-        vote = ""
+        duration = "0"
 
+    # Genre (open movie page)
     try:
-        duration = card.find_element(By.CSS_SELECTOR, ".dli-title-metadata-item").text
+        link = row.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+        driver.execute_script("window.open(arguments[0]);", link)
+        driver.switch_to.window(driver.window_handles[1])
+
+        time.sleep(2)
+
+        genre_elements = driver.find_elements(By.CSS_SELECTOR, ".ipc-chip__text")
+        genre_list = [g.text for g in genre_elements]
+
+        genre = ", ".join(genre_list)
+
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+
     except:
-        duration = ""
+        genre = "Unknown"
 
     movies.append(name)
     genres.append(genre)
@@ -68,8 +86,7 @@ df = pd.DataFrame({
 })
 
 print(df.head())
-print("Total movies scraped:", len(df))
 
 df.to_csv("data/imdb_movies.csv", index=False)
 
-print("CSV saved in data folder")
+print("Dataset saved successfully")
